@@ -1,6 +1,6 @@
 import { GameCanvas } from './components/GameCanvas';
 import { Header } from './components/Header';
-import { HexInfoModal } from './components/HexInfoModal';
+import { HexInfoPanel } from './components/HexInfoPanel';
 import { FogOfWar } from './components/FogOfWar';
 import { StatusBar } from './components/StatusBar';
 import { MoveConfirmationModal } from './components/MoveConfirmationModal';
@@ -11,7 +11,7 @@ function App() {
       <Header />
       <GameCanvas />
       <FogOfWar />
-      <HexInfoModal />
+      <HexInfoPanel />
       <MoveConfirmationModal />
       <StatusBar />
     </div>

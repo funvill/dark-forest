@@ -1,5 +1,6 @@
 import { useGameStore } from '../store/gameStore';
-import { getHexDistance } from '../utils/hexUtils';
+import { getHexDistance, getHexesInRange } from '../utils/hexUtils';
+import { universeGenerator } from '../utils/universeGenerator';
 
 export const MoveConfirmationModal = () => {
   const {
@@ -10,6 +11,8 @@ export const MoveConfirmationModal = () => {
     setShipPosition,
     setIsMoveMode,
     setStatusBarMessage,
+    incrementTurn,
+    scanHex,
   } = useGameStore();
 
   if (!showMoveConfirmation || !moveTargetHex) return null;
@@ -19,6 +22,16 @@ export const MoveConfirmationModal = () => {
   const handleConfirm = () => {
     // Move the ship
     setShipPosition(moveTargetHex);
+    
+    // Scan hexes within range 1 of new position
+    const hexesToScan = getHexesInRange(moveTargetHex, 1);
+    hexesToScan.forEach(hex => {
+      const solarSystem = universeGenerator.getSolarSystem(hex.q, hex.r);
+      scanHex(hex, solarSystem);
+    });
+    
+    // Increment turn
+    incrementTurn();
     
     // Exit move mode
     setIsMoveMode(false);

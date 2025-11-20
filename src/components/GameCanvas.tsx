@@ -77,7 +77,8 @@ const createSolarSystemVisual = (starType: StarType, planetCount: number): THREE
   group.add(glow);
   
   // Add particle system for star atmosphere
-  const particleCount = 30;
+  // Match particle count to planet count (with minimum of 10 for visual effect)
+  const particleCount = Math.max(planetCount * 3, 10);
   const particleGeometry = new THREE.BufferGeometry();
   const particlePositions = new Float32Array(particleCount * 3);
   
@@ -106,7 +107,16 @@ const createSolarSystemVisual = (starType: StarType, planetCount: number): THREE
   for (let i = 0; i < numPlanets; i++) {
     const orbitRadius = size + 10 + (i * 8);
     const planetSize = 1.5 + Math.random() * 1.5;
-    const planetAngle = (i / numPlanets) * Math.PI * 2;
+    // Randomize starting angle for varied positions around the sun
+    const planetAngle = Math.random() * Math.PI * 2;
+    
+    // Calculate orbit speed: 0.5-3 RPM (revolutions per minute)
+    // Convert to radians per frame (assuming 60 FPS)
+    // RPM to radians/second: RPM * (2π / 60)
+    // Radians/second to radians/frame: (radians/second) / 60
+    // Random speed between 0.5 and 3 RPM, slower for outer planets
+    const baseRPM = 3.0 - (i / numPlanets) * 2.5; // 3.0 to 0.5 RPM
+    const orbitSpeed = (baseRPM * 2 * Math.PI) / (60 * 60); // Convert RPM to radians per frame at 60 FPS
     
     // Create planet
     const planetGeometry = new THREE.CircleGeometry(planetSize, 16);
@@ -121,7 +131,7 @@ const createSolarSystemVisual = (starType: StarType, planetCount: number): THREE
     // Store orbit info for animation
     planet.userData = {
       orbitRadius,
-      orbitSpeed: 0.0005 / (i + 1), // Slower for outer planets
+      orbitSpeed,
       currentAngle: planetAngle,
     };
     
@@ -167,7 +177,20 @@ export const GameCanvas = () => {
     debugMode,
     isSolarSystemConverted,
     convertedSystems,
+    scanHex,
+    scannedHexes,
   } = useGameStore();
+
+  // Initial hex scanning - scan starting position and surrounding hexes
+  useEffect(() => {
+    if (scannedHexes.size === 0) {
+      const hexesToScan = getHexesInRange(shipPosition, 1);
+      hexesToScan.forEach(hex => {
+        const solarSystem = universeGenerator.getSolarSystem(hex.q, hex.r);
+        scanHex(hex, solarSystem);
+      });
+    }
+  }, []);
 
   useEffect(() => {
     if (!canvasRef.current) return;
