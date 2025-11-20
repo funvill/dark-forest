@@ -6,6 +6,8 @@ import { getHexDistance, getHexesInRange, findHexPath } from '../utils/hexUtils'
 import { HEX_SIZE, HEX_POSITIONS } from '../utils/hexPositions';
 import { universeGenerator } from '../utils/universeGenerator';
 import { StarType } from '../types/solarSystem';
+import { ringApi } from '../utils/ringApi';
+import type { InformationRing } from '../types/solarSystem';
 const SHIP_ROTATION_SPEED = (3 * 2 * Math.PI) / 60; // 3 RPM
 const MAX_MOVE_DISTANCE = 3;
 
@@ -157,8 +159,11 @@ export const GameCanvas = () => {
   const rangeHighlightMeshesRef = useRef<THREE.Mesh[]>([]);
   const debugCirclesRef = useRef<THREE.Object3D[]>([]);
   const solarSystemMeshesRef = useRef<Map<string, THREE.Group>>(new Map());
+  const ringMeshesRef = useRef<Map<string, THREE.Mesh>>(new Map());
+  const animatingRingsRef = useRef<Map<string, { startTime: number; startRadius: number; endRadius: number }>>(new Map());
   const offsetXRef = useRef<number>(0);
   const offsetYRef = useRef<number>(0);
+  const previousTurnRef = useRef<number>(0);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [cursorStyle, setCursorStyle] = useState('cursor-move');
@@ -179,6 +184,13 @@ export const GameCanvas = () => {
     convertedSystems,
     scanHex,
     scannedHexes,
+    informationRings,
+    currentTurn,
+    setSelectedRing,
+    setShowRingDetails,
+    setShowHexInfo: setShowHexInfoState,
+    zoomLevel,
+    setZoomLevel,
   } = useGameStore();
 
   // Initial hex scanning - scan starting position and surrounding hexes
@@ -219,6 +231,7 @@ export const GameCanvas = () => {
     const renderer = new THREE.WebGLRenderer({ canvas: canvasRef.current, antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.sortObjects = true; // Enable sorting for transparent objects
     rendererRef.current = renderer;
 
     // Define hex grid
@@ -412,6 +425,63 @@ export const GameCanvas = () => {
             child.rotation.z += 0.001;
           }
         });
+      });
+
+      // Animate ring growth
+      const now = Date.now();
+      const animationDuration = 800; // ms
+      
+      animatingRingsRef.current.forEach((animation, ringId) => {
+        const ringMesh = ringMeshesRef.current.get(ringId);
+        if (ringMesh && sceneRef.current) {
+          const elapsed = now - animation.startTime;
+          const progress = Math.min(elapsed / animationDuration, 1);
+          
+          // Ease out function
+          const eased = 1 - Math.pow(1 - progress, 3);
+          
+          const currentRadius = animation.startRadius + (animation.endRadius - animation.startRadius) * eased;
+          
+          // Update ring geometry
+          const ring = ringMesh.userData.ring as InformationRing;
+          const Hex = defineHex({ dimensions: HEX_SIZE, orientation: Orientation.POINTY });
+          const hex = new Hex(ring.origin);
+          
+          // Remove old mesh
+          sceneRef.current.remove(ringMesh);
+          ringMesh.geometry.dispose();
+          (ringMesh.material as THREE.Material).dispose();
+          
+          // Create new geometry with animated radius
+          const newGeometry = new THREE.RingGeometry(
+            currentRadius * HEX_SIZE * 1.5,
+            currentRadius * HEX_SIZE * 1.5 + 16, // Match the 2x thicker rings
+            64
+          );
+          
+          const color = ringApi.getRingColor(ring.actionType);
+          const newMaterial = new THREE.MeshBasicMaterial({
+            color: parseInt(color.replace('#', '0x')),
+            transparent: true,
+            opacity: 0.8,
+          });
+          
+          const newMesh = new THREE.Mesh(newGeometry, newMaterial);
+          newMesh.position.set(
+            ringMesh.position.x,
+            ringMesh.position.y,
+            ringMesh.position.z
+          );
+          newMesh.userData = ringMesh.userData;
+          
+          sceneRef.current.add(newMesh);
+          ringMeshesRef.current.set(ringId, newMesh);
+          
+          // Remove from animating list when done
+          if (progress >= 1) {
+            animatingRingsRef.current.delete(ringId);
+          }
+        }
       });
 
       // Update particles
@@ -641,6 +711,160 @@ export const GameCanvas = () => {
     }
   }, [isMoveMode, shipPosition]);
 
+  // Render information rings
+  useEffect(() => {
+    if (!sceneRef.current) return;
+
+    const scene = sceneRef.current;
+    const Hex = defineHex({ dimensions: HEX_SIZE, orientation: Orientation.POINTY });
+
+    // Remove old ring meshes
+    ringMeshesRef.current.forEach((mesh) => {
+      scene.remove(mesh);
+      mesh.geometry.dispose();
+      (mesh.material as THREE.Material).dispose();
+    });
+    ringMeshesRef.current.clear();
+
+    // Create ring meshes for visible rings
+    const visibleRings = ringApi.getVisibleRings(informationRings, shipPosition, 25);
+    
+    if (informationRings.length > 0) {
+      console.log('=== RING DEBUG ===');
+      console.log('Total rings in store:', informationRings.length);
+      console.log('Visible rings:', visibleRings.length);
+      console.log('Current turn:', currentTurn);
+      console.log('Ship position:', shipPosition);
+      informationRings.forEach((r, i) => {
+        const radius = ringApi.getRingRadius(r, currentTurn);
+        console.log(`Ring ${i + 1}:`, {
+          id: r.id.substring(0, 20),
+          origin: `(${r.origin.q}, ${r.origin.r})`,
+          createdTurn: r.createdTurn,
+          radius: radius
+        });
+      });
+      console.log('==================');
+    }
+    
+    visibleRings.forEach((ring: InformationRing) => {
+      const radius = ringApi.getRingRadius(ring, currentTurn);
+      
+      // Always render rings, even if radius is 0 (they'll animate from origin)
+      const hex = new Hex(ring.origin);
+      const center = hex.center;
+        
+        // Create ring geometry (circle outline with particles)
+        const ringGeometry = new THREE.RingGeometry(
+          radius * HEX_SIZE * 1.5, // inner radius (convert hex distance to world units)
+          radius * HEX_SIZE * 1.5 + 16, // outer radius (2x thicker ring)
+          64 // segments for smooth circle
+        );
+        
+        const color = ringApi.getRingColor(ring.actionType);
+        
+        // Create material with uniform opacity - SIMPLIFIED FOR DEBUGGING
+        const ringMaterial = new THREE.MeshBasicMaterial({
+          color: parseInt(color.replace('#', '0x')),
+          transparent: true,
+          opacity: 0.8,
+        });
+        
+        const ringMesh = new THREE.Mesh(ringGeometry, ringMaterial);
+        ringMesh.position.set(
+          center.x - offsetXRef.current,
+          center.y - offsetYRef.current,
+          2 + ring.createdTurn * 0.01 // Slightly different z-position per turn to prevent z-fighting
+        );
+        ringMesh.renderOrder = 1000 + ring.createdTurn; // Render older rings first
+        ringMesh.userData = { ringId: ring.id, ring };
+        
+        scene.add(ringMesh);
+        ringMeshesRef.current.set(ring.id, ringMesh);
+        
+        console.log(`Added ring mesh to scene:`, {
+          id: ring.id.substring(0, 20),
+          position: `(${center.x.toFixed(1)}, ${center.y.toFixed(1)}, ${(2 + ring.createdTurn * 0.01).toFixed(2)})`,
+          radius: `${(radius * HEX_SIZE * 1.5).toFixed(1)} to ${(radius * HEX_SIZE * 1.5 + 16).toFixed(1)}`,
+          color: color
+        });
+        
+        // Add origin marker
+        const markerGeometry = new THREE.CircleGeometry(5, 16);
+        const markerMaterial = new THREE.MeshBasicMaterial({
+          color: parseInt(color.replace('#', '0x')),
+          transparent: true,
+          opacity: 0.8,
+        });
+        const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+        marker.position.set(
+          center.x - offsetXRef.current,
+          center.y - offsetYRef.current,
+          3 + ring.createdTurn * 0.01 // Match ring z-offset
+        );
+        marker.userData = { ringId: ring.id, ring, isMarker: true };
+        
+        scene.add(marker);
+    });
+  }, [informationRings, currentTurn, shipPosition]);
+
+  // Trigger ring animations when turn changes or new rings added
+  useEffect(() => {
+    // Check for new rings (just created)
+    informationRings.forEach((ring) => {
+      const currentRadius = ringApi.getRingRadius(ring, currentTurn);
+      
+      // If this is a brand new ring (created this turn), animate from 0
+      if (ring.createdTurn === currentTurn && !animatingRingsRef.current.has(ring.id)) {
+        animatingRingsRef.current.set(ring.id, {
+          startTime: Date.now(),
+          startRadius: 0,
+          endRadius: currentRadius,
+        });
+      }
+    });
+    
+    // Handle turn increment animations
+    if (currentTurn > previousTurnRef.current && previousTurnRef.current > 0) {
+      // Turn incremented, animate all existing rings growing
+      informationRings.forEach((ring) => {
+        const oldRadius = ringApi.getRingRadius(ring, previousTurnRef.current);
+        const newRadius = ringApi.getRingRadius(ring, currentTurn);
+        
+        // Only animate if ring existed before this turn
+        if (oldRadius > 0 && ring.createdTurn < currentTurn) {
+          animatingRingsRef.current.set(ring.id, {
+            startTime: Date.now(),
+            startRadius: oldRadius,
+            endRadius: newRadius,
+          });
+        }
+      });
+    }
+    previousTurnRef.current = currentTurn;
+  }, [currentTurn, informationRings]);
+
+  // Handle zoom level changes
+  useEffect(() => {
+    if (!cameraRef.current) return;
+    
+    const camera = cameraRef.current;
+    const aspect = window.innerWidth / window.innerHeight;
+    const frustumSize = 1000 / zoomLevel; // Adjust frustum size based on zoom
+    
+    camera.left = (frustumSize * aspect) / -2;
+    camera.right = (frustumSize * aspect) / 2;
+    camera.top = frustumSize / 2;
+    camera.bottom = frustumSize / -2;
+    camera.updateProjectionMatrix();
+  }, [zoomLevel]);
+
+  // Update camera position when cameraPosition state changes
+  useEffect(() => {
+    if (!cameraRef.current) return;
+    cameraRef.current.position.set(cameraPosition.x, cameraPosition.y, 100);
+  }, [cameraPosition]);
+
   // Update ship position in 3D scene when it changes
   useEffect(() => {
     if (!shipRef.current) return;
@@ -770,6 +994,30 @@ export const GameCanvas = () => {
     mouseRef.current.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
     raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current);
+    
+    // Check for ring hover first (higher z-index)
+    if (!isMoveMode && sceneRef.current) {
+      const ringIntersects = raycasterRef.current.intersectObjects(
+        sceneRef.current.children.filter(child => 
+          child.userData.ring || child.userData.isMarker
+        )
+      );
+      
+      if (ringIntersects.length > 0) {
+        setCursorStyle('cursor-pointer');
+        // Still check hexes below but don't change cursor
+        const intersects = raycasterRef.current.intersectObjects(
+          Array.from(hexMeshesRef.current.values())
+        );
+        if (intersects.length > 0) {
+          const hex = intersects[0].object as THREE.Mesh;
+          const { q, r } = hex.userData;
+          setHoveredHex({ q, r });
+        }
+        return;
+      }
+    }
+    
     const intersects = raycasterRef.current.intersectObjects(
       Array.from(hexMeshesRef.current.values())
     );
@@ -943,12 +1191,35 @@ export const GameCanvas = () => {
   };
 
   const handleClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!cameraRef.current) return;
+    if (!cameraRef.current || !sceneRef.current) return;
 
     mouseRef.current.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouseRef.current.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
     raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current);
+    
+    // Check for ring clicks first (higher priority)
+    const ringMeshes = Array.from(ringMeshesRef.current.values());
+    const ringIntersects = raycasterRef.current.intersectObjects(
+      sceneRef.current.children.filter(child => 
+        child.userData.ring || child.userData.isMarker
+      )
+    );
+    
+    if (ringIntersects.length > 0 && !isMoveMode) {
+      const clickedObject = ringIntersects[0].object as THREE.Mesh;
+      const ring = clickedObject.userData.ring as InformationRing;
+      
+      if (ring) {
+        // Close hex info if open, show ring details
+        setShowHexInfoState(false);
+        setSelectedRing(ring);
+        setShowRingDetails(true);
+        return;
+      }
+    }
+
+    // Then check for hex clicks
     const intersects = raycasterRef.current.intersectObjects(
       Array.from(hexMeshesRef.current.values())
     );
@@ -967,7 +1238,8 @@ export const GameCanvas = () => {
           setShowMoveConfirmation(true);
         }
       } else {
-        // Normal mode: show hex info
+        // Normal mode: close ring details if open, show hex info
+        setShowRingDetails(false);
         setSelectedHex({ q, r });
         
         // Check if clicking on a solar system to show additional info
@@ -981,6 +1253,19 @@ export const GameCanvas = () => {
     }
   };
 
+  const handleWheel = (event: React.WheelEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
+    const delta = event.deltaY;
+    
+    if (delta > 0) {
+      // Zoom out
+      setZoomLevel(zoomLevel / 1.1);
+    } else {
+      // Zoom in
+      setZoomLevel(zoomLevel * 1.1);
+    }
+  };
+
   return (
     <canvas
       ref={canvasRef}
@@ -988,6 +1273,8 @@ export const GameCanvas = () => {
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
       onMouseLeave={() => setIsDragging(false)}
+      onClick={handleClick}
+      onWheel={handleWheel}
       className={`fixed inset-0 w-full h-full z-0 ${cursorStyle}`}
       style={{
         cursor: isMoveMode

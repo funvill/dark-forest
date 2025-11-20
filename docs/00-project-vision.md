@@ -49,7 +49,7 @@ With “Perfect mass to energy conversation” a species can create a single gen
 
 ### "Information rings”
 
-Firing the “Big Gun”, or “Perfect mass to energy conversation” of a solar system, or moving the “Generation ship” causes the information rings to be sent out in every direction at the speed of light. When the "Information rings” hit another species generation ship they can tell the following information. What action was taken, The location of the action, and how long ago the action occurred.
+Firing the “Big Gun”, or “Perfect mass to energy conversation” of a solar system, or moving the “Generation ship” causes the information rings to be sent out in every direction at the speed of light. When the "Information rings” passes over another species generation ship they can tell the following information. What action was taken, The location of the action, and how long ago the action occurred.
 
 ### “Dark Forest” Theory
 

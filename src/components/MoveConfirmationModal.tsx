@@ -1,6 +1,8 @@
 import { useGameStore } from '../store/gameStore';
 import { getHexDistance, getHexesInRange } from '../utils/hexUtils';
 import { universeGenerator } from '../utils/universeGenerator';
+import { ringApi } from '../utils/ringApi';
+import { ActionType } from '../types/solarSystem';
 
 export const MoveConfirmationModal = () => {
   const {
@@ -13,6 +15,8 @@ export const MoveConfirmationModal = () => {
     setStatusBarMessage,
     incrementTurn,
     scanHex,
+    addInformationRing,
+    currentTurn,
   } = useGameStore();
 
   if (!showMoveConfirmation || !moveTargetHex) return null;
@@ -20,6 +24,16 @@ export const MoveConfirmationModal = () => {
   const distance = getHexDistance(shipPosition, moveTargetHex);
 
   const handleConfirm = () => {
+    // Create information ring at starting position
+    const ring = ringApi.createRing(
+      shipPosition,
+      currentTurn,
+      ActionType.MOVE,
+      'player',
+      'You'
+    );
+    addInformationRing(ring);
+    
     // Move the ship
     setShipPosition(moveTargetHex);
     

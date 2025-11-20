@@ -23,3 +23,20 @@ export interface HexCoordinate {
   q: number;
   r: number;
 }
+
+export const ActionType = {
+  MOVE: 'move',
+  BIG_GUN: 'big_gun',
+  CONVERSION: 'conversion',
+} as const;
+
+export type ActionType = typeof ActionType[keyof typeof ActionType];
+
+export interface InformationRing {
+  id: string;
+  origin: HexCoordinate;
+  createdTurn: number;
+  actionType: ActionType;
+  playerId: string;
+  playerName: string;
+}

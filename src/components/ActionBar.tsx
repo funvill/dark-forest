@@ -1,5 +1,7 @@
 import { useGameStore } from '../store/gameStore';
 import { universeGenerator } from '../utils/universeGenerator';
+import { ringApi } from '../utils/ringApi';
+import { ActionType } from '../types/solarSystem';
 
 export const ActionBar = () => {
   const { 
@@ -12,6 +14,13 @@ export const ActionBar = () => {
     shipPosition,
     convertSolarSystem,
     isSolarSystemConverted,
+    setShowEventsLog,
+    showEventsLog,
+    addInformationRing,
+    currentTurn,
+    incrementTurn,
+    showConversionConfirmation,
+    setShowConversionConfirmation,
   } = useGameStore();
 
   const handleMoveClick = () => {
@@ -29,11 +38,7 @@ export const ActionBar = () => {
   };
 
   const handleConvertClick = () => {
-    const solarSystem = universeGenerator.getSolarSystem(shipPosition.q, shipPosition.r);
-    if (solarSystem && !isSolarSystemConverted(shipPosition.q, shipPosition.r)) {
-      convertSolarSystem(shipPosition.q, shipPosition.r);
-      setStatusBarMessage(`Converted ${solarSystem.name}! Mass: ${solarSystem.mass.toFixed(1)} -> Energy: ${(solarSystem.mass * Math.pow(299792458, 2)).toExponential(2)} J`);
-    }
+    setShowConversionConfirmation(true);
   };
 
   // Check if ship is on a solar system
@@ -41,7 +46,7 @@ export const ActionBar = () => {
   const canConvert = solarSystem && !isSolarSystemConverted(shipPosition.q, shipPosition.r);
 
   return (
-    <div className="flex gap-2 px-6 py-2 border-t border-gray-200">
+    <div className="flex gap-2">
       <button
         onClick={handleMoveClick}
         className={`px-4 py-2 rounded font-semibold transition-colors ${
@@ -60,6 +65,16 @@ export const ActionBar = () => {
           Convert System (E=MC²)
         </button>
       )}
+      <button
+        onClick={() => setShowEventsLog(!showEventsLog)}
+        className={`px-4 py-2 rounded font-semibold transition-colors ${
+          showEventsLog
+            ? 'bg-purple-700 hover:bg-purple-800 text-white'
+            : 'bg-purple-600 hover:bg-purple-700 text-white'
+        }`}
+      >
+        Events Log
+      </button>
       <button
         onClick={() => setDebugMode(!debugMode)}
         className={`px-4 py-2 rounded font-semibold transition-colors ${

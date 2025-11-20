@@ -4,6 +4,10 @@ import { HexInfoPanel } from './components/HexInfoPanel';
 import { FogOfWar } from './components/FogOfWar';
 import { StatusBar } from './components/StatusBar';
 import { MoveConfirmationModal } from './components/MoveConfirmationModal';
+import { ConversionConfirmationModal } from './components/ConversionConfirmationModal';
+import { InformationRingDetailsPanel } from './components/InformationRingDetailsPanel';
+import { EventsLogPanel } from './components/EventsLogPanel';
+import { MapControls } from './components/MapControls';
 
 function App() {
   return (
@@ -12,7 +16,11 @@ function App() {
       <GameCanvas />
       <FogOfWar />
       <HexInfoPanel />
+      <InformationRingDetailsPanel />
+      <EventsLogPanel />
+      <MapControls />
       <MoveConfirmationModal />
+      <ConversionConfirmationModal />
       <StatusBar />
     </div>
   );

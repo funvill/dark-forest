@@ -1,6 +1,7 @@
 import { useGameStore } from '../store/gameStore';
 import { getHexDistance } from '../utils/hexUtils';
 import { universeGenerator } from '../utils/universeGenerator';
+import { ringApi } from '../utils/ringApi';
 
 export const HexInfoPanel = () => {
   const { 
@@ -10,6 +11,7 @@ export const HexInfoPanel = () => {
     shipPosition,
     currentTurn,
     getHexScanData,
+    informationRings,
   } = useGameStore();
 
   if (!showHexInfo || !selectedHex) return null;
@@ -17,6 +19,11 @@ export const HexInfoPanel = () => {
   const distance = getHexDistance(selectedHex, shipPosition);
   const scanData = getHexScanData(selectedHex);
   const solarSystem = universeGenerator.getSolarSystem(selectedHex.q, selectedHex.r);
+  
+  // Find rings that originated from this hex
+  const ringsAtHex = informationRings.filter(
+    ring => ring.origin.q === selectedHex.q && ring.origin.r === selectedHex.r
+  );
   
   // Calculate age in turns
   const turnsAgo = scanData ? currentTurn - scanData.lastScanned : null;
@@ -27,7 +34,7 @@ export const HexInfoPanel = () => {
     : 'Never scanned';
 
   return (
-    <div className="fixed left-0 top-[140px] bottom-0 w-[300px] bg-gray-900 text-white shadow-2xl z-50 overflow-y-auto">
+    <div className="fixed left-0 top-[80px] bottom-0 w-[300px] bg-gray-900 text-white shadow-2xl z-50 overflow-y-auto">
       {/* Header with close button */}
       <div className="flex items-center justify-between p-4 border-b border-gray-700 bg-gray-800 sticky top-0 z-10">
         <h2 className="text-lg font-bold">Hex Information</h2>
@@ -72,19 +79,34 @@ export const HexInfoPanel = () => {
           </p>
         </div>
 
-        {/* Events (Placeholder) */}
-        {scanData && scanData.events.length > 0 && (
-          <div className="bg-gray-800 p-3 rounded border border-gray-700">
-            <p className="text-sm text-gray-400 mb-2">Recent Events</p>
-            <div className="space-y-1">
-              {scanData.events.map((event, idx) => (
-                <div key={idx} className="text-sm">
-                  <span className="text-gray-300">{event.description}</span>
-                  <span className="text-gray-500 ml-2">
-                    ({event.turnsAgo} turn{event.turnsAgo !== 1 ? 's' : ''} ago)
-                  </span>
-                </div>
-              ))}
+        {/* Information Rings originated from this hex - Only show if there's a solar system */}
+        {solarSystem && ringsAtHex.length > 0 && (
+          <div className="bg-gray-800 p-3 rounded border border-purple-600">
+            <p className="text-sm text-gray-400 mb-2">Events at this Location</p>
+            <div className="space-y-2">
+              {ringsAtHex.map((ring) => {
+                const turnsAgo = currentTurn - ring.createdTurn;
+                const actionName = ringApi.getActionName(ring.actionType);
+                const color = ringApi.getRingColor(ring.actionType);
+                
+                return (
+                  <div key={ring.id} className="flex items-start gap-2 text-sm">
+                    <div
+                      className="w-3 h-3 rounded-full mt-0.5 flex-shrink-0"
+                      style={{ backgroundColor: color }}
+                    />
+                    <div className="flex-1">
+                      <div className="text-white font-semibold">{actionName}</div>
+                      <div className="text-gray-400 text-xs">
+                        {turnsAgo} turn{turnsAgo !== 1 ? 's' : ''} ago • Turn {ring.createdTurn}
+                      </div>
+                      <div className="text-gray-500 text-xs">
+                        By: {ring.playerName}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
