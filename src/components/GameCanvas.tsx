@@ -444,8 +444,6 @@ export const GameCanvas = () => {
           
           // Update ring geometry
           const ring = ringMesh.userData.ring as InformationRing;
-          const Hex = defineHex({ dimensions: HEX_SIZE, orientation: Orientation.POINTY });
-          const hex = new Hex(ring.origin);
           
           // Remove old mesh
           sceneRef.current.remove(ringMesh);
@@ -1199,7 +1197,6 @@ export const GameCanvas = () => {
     raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current);
     
     // Check for ring clicks first (higher priority)
-    const ringMeshes = Array.from(ringMeshesRef.current.values());
     const ringIntersects = raycasterRef.current.intersectObjects(
       sceneRef.current.children.filter(child => 
         child.userData.ring || child.userData.isMarker

@@ -1,7 +1,5 @@
 import { useGameStore } from '../store/gameStore';
 import { universeGenerator } from '../utils/universeGenerator';
-import { ringApi } from '../utils/ringApi';
-import { ActionType } from '../types/solarSystem';
 
 export const ActionBar = () => {
   const { 
@@ -12,14 +10,9 @@ export const ActionBar = () => {
     debugMode, 
     setDebugMode,
     shipPosition,
-    convertSolarSystem,
     isSolarSystemConverted,
     setShowEventsLog,
     showEventsLog,
-    addInformationRing,
-    currentTurn,
-    incrementTurn,
-    showConversionConfirmation,
     setShowConversionConfirmation,
   } = useGameStore();
 
