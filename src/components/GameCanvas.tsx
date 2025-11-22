@@ -8,8 +8,14 @@ import { universeGenerator } from '../utils/universeGenerator';
 import { StarType } from '../types/solarSystem';
 import { ringApi } from '../utils/ringApi';
 import type { InformationRing } from '../types/solarSystem';
-const SHIP_ROTATION_SPEED = (3 * 2 * Math.PI) / 60; // 3 RPM
-const MAX_MOVE_DISTANCE = 3;
+import {
+  MAX_MOVE_DISTANCE,
+  SHIP_ROTATION_SPEED,
+  STAR_COLORS,
+  STAR_VISUAL_SIZES,
+  PLANET_PARTICLE_MULTIPLIER,
+  MIN_ATMOSPHERE_PARTICLES,
+} from '../constants/gameConstants';
 
 // Function to create text sprite
 const createTextSprite = (text: string) => {
@@ -41,24 +47,8 @@ const createTextSprite = (text: string) => {
 const createSolarSystemVisual = (starType: StarType, planetCount: number): THREE.Group => {
   const group = new THREE.Group();
   
-  // Star colors based on type
-  const starColors = {
-    [StarType.RED_DWARF]: 0xff4444,
-    [StarType.YELLOW_SUN]: 0xffff44,
-    [StarType.BLUE_GIANT]: 0x4444ff,
-    [StarType.WHITE_DWARF]: 0xeeeeee,
-  };
-  
-  // Star sizes based on type
-  const starSizes = {
-    [StarType.RED_DWARF]: 8,
-    [StarType.YELLOW_SUN]: 12,
-    [StarType.BLUE_GIANT]: 18,
-    [StarType.WHITE_DWARF]: 6,
-  };
-  
-  const color = starColors[starType];
-  const size = starSizes[starType];
+  const color = STAR_COLORS[starType];
+  const size = STAR_VISUAL_SIZES[starType];
   
   // Create star (sun) at center
   const starGeometry = new THREE.CircleGeometry(size, 32);
@@ -79,8 +69,8 @@ const createSolarSystemVisual = (starType: StarType, planetCount: number): THREE
   group.add(glow);
   
   // Add particle system for star atmosphere
-  // Match particle count to planet count (with minimum of 10 for visual effect)
-  const particleCount = Math.max(planetCount * 3, 10);
+  // Match particle count to planet count (with minimum for visual effect)
+  const particleCount = Math.max(planetCount * PLANET_PARTICLE_MULTIPLIER, MIN_ATMOSPHERE_PARTICLES);
   const particleGeometry = new THREE.BufferGeometry();
   const particlePositions = new Float32Array(particleCount * 3);
   
@@ -156,6 +146,7 @@ export const GameCanvas = () => {
   const coordinateTextRef = useRef<THREE.Sprite | null>(null);
   const moveLineRef = useRef<THREE.Group | null>(null);
   const moveLineParticlesRef = useRef<{ particles: THREE.Points; path: THREE.Vector3[]; color: number; time: number } | null>(null);
+  const movementGhostRef = useRef<{ line: THREE.Line; particles: THREE.Points } | null>(null);
   const rangeHighlightMeshesRef = useRef<THREE.Mesh[]>([]);
   const debugCirclesRef = useRef<THREE.Object3D[]>([]);
   const solarSystemMeshesRef = useRef<Map<string, THREE.Group>>(new Map());
@@ -191,6 +182,7 @@ export const GameCanvas = () => {
     setShowHexInfo: setShowHexInfoState,
     zoomLevel,
     setZoomLevel,
+    movementHistory,
   } = useGameStore();
 
   // Initial hex scanning - scan starting position and surrounding hexes
@@ -306,7 +298,7 @@ export const GameCanvas = () => {
 
     // Create ship (cone pointing up)
     const shipGroup = new THREE.Group();
-    const shipGeometry = new THREE.ConeGeometry(10, 25, 3);
+    const shipGeometry = new THREE.ConeGeometry(25, 50, 3); // 50% of HEX_SIZE (100)
     const shipMaterial = new THREE.MeshBasicMaterial({ color: 0x4488ff });
     const shipMesh = new THREE.Mesh(shipGeometry, shipMaterial);
     shipMesh.rotation.z = Math.PI / 2; // Point up
@@ -373,7 +365,7 @@ export const GameCanvas = () => {
     createLabeledCircle(centerPos.x, centerPos.y, 'X');
 
     // Create particle system for ship tail
-    const particleCount = 50;
+    const particleCount = 100;
     const particleGeometry = new THREE.BufferGeometry();
     const positions = new Float32Array(particleCount * 3);
     const velocities = new Float32Array(particleCount * 3);
@@ -382,8 +374,8 @@ export const GameCanvas = () => {
       positions[i * 3] = HEX_POSITIONS.X.x;
       positions[i * 3 + 1] = HEX_POSITIONS.X.y;
       positions[i * 3 + 2] = 0;
-      velocities[i * 3] = (Math.random() - 0.5) * 0.5;
-      velocities[i * 3 + 1] = (Math.random() - 0.5) * 0.5;
+      velocities[i * 3] = (Math.random() - 0.5) * 2.5; // Spread to edge of hex
+      velocities[i * 3 + 1] = (Math.random() - 0.5) * 2.5; // Spread to edge of hex
       velocities[i * 3 + 2] = 0;
     }
 
@@ -500,14 +492,59 @@ export const GameCanvas = () => {
           const dx = positions[i * 3] - shipX;
           const dy = positions[i * 3 + 1] - shipY;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist > 30) {
-            positions[i * 3] = shipX + (Math.random() - 0.5) * 10;
-            positions[i * 3 + 1] = shipY + (Math.random() - 0.5) * 10;
+          if (dist > 100) { // Reset at hex edge (HEX_SIZE)
+            positions[i * 3] = shipX + (Math.random() - 0.5) * 20;
+            positions[i * 3 + 1] = shipY + (Math.random() - 0.5) * 20;
             positions[i * 3 + 2] = 5;
           }
         }
 
         particlesRef.current.geometry.attributes.position.needsUpdate = true;
+      }
+
+      // Update movement ghost particles
+      if (movementGhostRef.current) {
+        const ghostPositions = movementGhostRef.current.particles.geometry.attributes.position.array as Float32Array;
+        const ghostVelocities = movementGhostRef.current.particles.geometry.attributes.velocity.array as Float32Array;
+        const ghostLifetimes = movementGhostRef.current.particles.geometry.attributes.lifetime.array as Float32Array;
+
+        for (let i = 0; i < ghostLifetimes.length; i++) {
+          if (ghostLifetimes[i] > 0) {
+            // Move particles outward
+            ghostPositions[i * 3] += ghostVelocities[i * 3];
+            ghostPositions[i * 3 + 1] += ghostVelocities[i * 3 + 1];
+            
+            // Decrease lifetime slowly
+            ghostLifetimes[i] -= 0.003;
+            
+            // Update opacity based on lifetime
+            if (ghostLifetimes[i] < 0.3) {
+              const material = movementGhostRef.current.particles.material as THREE.PointsMaterial;
+              material.opacity = 0.4 * (ghostLifetimes[i] / 0.3);
+            }
+          } else {
+            // Respawn particle along the path
+            ghostLifetimes[i] = 1.0;
+            const segmentIndex = Math.floor(i / 20) % (movementHistory.length - 1);
+            if (segmentIndex < movementHistory.length - 1 && movementHistory.length > 1) {
+              const hex1 = new Hex(movementHistory[segmentIndex]);
+              const hex2 = new Hex(movementHistory[segmentIndex + 1]);
+              const t = (i % 20) / 20;
+              
+              ghostPositions[i * 3] = (hex1.center.x - offsetXRef.current) + ((hex2.center.x - offsetXRef.current) - (hex1.center.x - offsetXRef.current)) * t + (Math.random() - 0.5) * 10;
+              ghostPositions[i * 3 + 1] = (hex1.center.y - offsetYRef.current) + ((hex2.center.y - offsetYRef.current) - (hex1.center.y - offsetYRef.current)) * t + (Math.random() - 0.5) * 10;
+              ghostPositions[i * 3 + 2] = 1;
+
+              const angle = Math.random() * Math.PI * 2;
+              const speed = 0.3 + Math.random() * 0.3;
+              ghostVelocities[i * 3] = Math.cos(angle) * speed;
+              ghostVelocities[i * 3 + 1] = Math.sin(angle) * speed;
+            }
+          }
+        }
+
+        movementGhostRef.current.particles.geometry.attributes.position.needsUpdate = true;
+        movementGhostRef.current.particles.geometry.attributes.lifetime.needsUpdate = true;
       }
 
       // Update move line particles
@@ -616,6 +653,91 @@ export const GameCanvas = () => {
       renderer.dispose();
     };
   }, []);
+
+  // Update movement ghost trail when history changes
+  useEffect(() => {
+    if (!sceneRef.current || movementHistory.length < 2) return;
+
+    const scene = sceneRef.current;
+    const Hex = defineHex({ dimensions: HEX_SIZE, orientation: Orientation.POINTY });
+
+    // Remove old ghost if it exists
+    if (movementGhostRef.current) {
+      scene.remove(movementGhostRef.current.line);
+      scene.remove(movementGhostRef.current.particles);
+      movementGhostRef.current.line.geometry.dispose();
+      (movementGhostRef.current.line.material as THREE.Material).dispose();
+      movementGhostRef.current.particles.geometry.dispose();
+      (movementGhostRef.current.particles.material as THREE.Material).dispose();
+    }
+
+    // Create line path from movement history
+    const points: THREE.Vector3[] = [];
+    movementHistory.forEach(pos => {
+      const hex = new Hex(pos);
+      const center = hex.center;
+      points.push(new THREE.Vector3(
+        center.x - offsetXRef.current,
+        center.y - offsetYRef.current,
+        1
+      ));
+    });
+
+    // Create faint blue line
+    const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+    const lineMaterial = new THREE.LineBasicMaterial({
+      color: 0x4488ff,
+      transparent: true,
+      opacity: 0.3,
+      linewidth: 2,
+    });
+    const line = new THREE.Line(lineGeometry, lineMaterial);
+    scene.add(line);
+
+    // Create particles along the path
+    const ghostParticleCount = points.length * 20;
+    const ghostParticleGeometry = new THREE.BufferGeometry();
+    const ghostPositions = new Float32Array(ghostParticleCount * 3);
+    const ghostVelocities = new Float32Array(ghostParticleCount * 3);
+    const ghostLifetimes = new Float32Array(ghostParticleCount);
+
+    for (let i = 0; i < ghostParticleCount; i++) {
+      const segmentIndex = Math.floor(i / 20) % (points.length - 1);
+      if (segmentIndex < points.length - 1) {
+        const t = (i % 20) / 20;
+        const p1 = points[segmentIndex];
+        const p2 = points[segmentIndex + 1];
+        
+        ghostPositions[i * 3] = p1.x + (p2.x - p1.x) * t + (Math.random() - 0.5) * 10;
+        ghostPositions[i * 3 + 1] = p1.y + (p2.y - p1.y) * t + (Math.random() - 0.5) * 10;
+        ghostPositions[i * 3 + 2] = 1;
+
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 0.3 + Math.random() * 0.3;
+        ghostVelocities[i * 3] = Math.cos(angle) * speed;
+        ghostVelocities[i * 3 + 1] = Math.sin(angle) * speed;
+        ghostVelocities[i * 3 + 2] = 0;
+
+        ghostLifetimes[i] = 1.0;
+      }
+    }
+
+    ghostParticleGeometry.setAttribute('position', new THREE.BufferAttribute(ghostPositions, 3));
+    ghostParticleGeometry.setAttribute('velocity', new THREE.BufferAttribute(ghostVelocities, 3));
+    ghostParticleGeometry.setAttribute('lifetime', new THREE.BufferAttribute(ghostLifetimes, 1));
+
+    const ghostParticleMaterial = new THREE.PointsMaterial({
+      color: 0x4488ff,
+      size: 2,
+      transparent: true,
+      opacity: 0.4,
+    });
+
+    const ghostParticles = new THREE.Points(ghostParticleGeometry, ghostParticleMaterial);
+    scene.add(ghostParticles);
+
+    movementGhostRef.current = { line, particles: ghostParticles };
+  }, [movementHistory]);
 
   // Handle move mode - show range highlights and animate camera
   useEffect(() => {
@@ -1137,8 +1259,8 @@ export const GameCanvas = () => {
         // Highlight hex differently based on move validity
         (hex.material as THREE.MeshBasicMaterial).color.set(canMove ? 0x00ff00 : 0xff0000);
       } else {
-        // Normal mode: yellow highlight
-        (hex.material as THREE.MeshBasicMaterial).color.set(0xffff99);
+        // Normal mode: lighter yellow highlight for less distraction
+        (hex.material as THREE.MeshBasicMaterial).color.set(0xffffbb);
         setCursorStyle('cursor-move');
         
         // Check for solar system info

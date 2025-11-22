@@ -15,6 +15,12 @@ When the Move button is pressed
 - If the line is farther away then three hex the line should glow red and the mouse icon should change to a "X". This shows the user that they can't move there. The status bar should show "Can't move that far. {$distance} spaces"
 - If the user is within three hex and they click a hex, a "Are you sure?" Model dialog should pop up. The options are "Cancel", or "Move and end turn"
 
+## Movement Ghost
+
+Link all the previouse moves of ship with a faint blue line that shows the path that you have moved around the map. Line should be mostly transparent, and have some partical effects. The partical effects should be spreading outwards from the edges of the line slowly.
+
+This effect is to help you know where you have been on the map
+
 ## Implementation Details - Questions & Answers
 
 1. **Move Mode Toggle**: A) Toggle on/off with same button (button text changes to "Cancel Move")

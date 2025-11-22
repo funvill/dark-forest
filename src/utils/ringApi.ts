@@ -1,4 +1,10 @@
 import type { InformationRing, ActionType, HexCoordinate } from '../types/solarSystem';
+import { 
+  RING_EXPANSION_RATE, 
+  RING_VISIBILITY_RANGE, 
+  RING_DETECTION_TOLERANCE,
+  ACTION_COLORS,
+} from '../constants/gameConstants';
 
 /**
  * Mock API for Information Ring operations
@@ -27,7 +33,7 @@ class RingApi {
    */
   getRingRadius(ring: InformationRing, currentTurn: number): number {
     const turnsSinceCreation = currentTurn - ring.createdTurn;
-    return turnsSinceCreation * 3; // 3 hexes per turn
+    return turnsSinceCreation * RING_EXPANSION_RATE;
   }
 
   /**
@@ -52,11 +58,11 @@ class RingApi {
   getRingColor(actionType: ActionType): string {
     switch (actionType) {
       case 'move':
-        return '#3b82f6'; // blue
+        return ACTION_COLORS.MOVE;
       case 'big_gun':
-        return '#f97316'; // orange
+        return ACTION_COLORS.BIG_GUN;
       case 'conversion':
-        return '#ef4444'; // red
+        return ACTION_COLORS.CONVERSION;
       default:
         return '#6b7280'; // gray
     }
@@ -70,12 +76,12 @@ class RingApi {
     ring: InformationRing,
     currentTurn: number,
     shipPosition: HexCoordinate,
-    scanRange: number = 25
+    scanRange: number = RING_VISIBILITY_RANGE
   ): boolean {
     // Calculate distance from ship to ring origin
     const distanceToOrigin = this.hexDistance(shipPosition, ring.origin);
     
-    // Ring is only visible if within scan range (25 tiles)
+    // Ring is only visible if within scan range
     if (distanceToOrigin > scanRange) {
       return false;
     }
@@ -85,8 +91,7 @@ class RingApi {
     
     // Check if point is on the ring (within particle tolerance)
     // Only detect the visible particles, not the entire ring
-    const tolerance = 0.5; // Half a hex tolerance
-    return Math.abs(distanceFromOrigin - ringRadius) <= tolerance;
+    return Math.abs(distanceFromOrigin - ringRadius) <= RING_DETECTION_TOLERANCE;
   }
 
   /**
@@ -99,7 +104,7 @@ class RingApi {
   /**
    * Check if a ring is visible (within scan range from ship)
    */
-  isRingVisible(ring: InformationRing, shipPosition: HexCoordinate, scanRange: number = 25): boolean {
+  isRingVisible(ring: InformationRing, shipPosition: HexCoordinate, scanRange: number = RING_VISIBILITY_RANGE): boolean {
     const distanceToOrigin = this.hexDistance(shipPosition, ring.origin);
     return distanceToOrigin <= scanRange;
   }
@@ -107,7 +112,7 @@ class RingApi {
   /**
    * Get all rings visible from current position
    */
-  getVisibleRings(rings: InformationRing[], shipPosition: HexCoordinate, scanRange: number = 25): InformationRing[] {
+  getVisibleRings(rings: InformationRing[], shipPosition: HexCoordinate, scanRange: number = RING_VISIBILITY_RANGE): InformationRing[] {
     return rings.filter(ring => this.isRingVisible(ring, shipPosition, scanRange));
   }
 }

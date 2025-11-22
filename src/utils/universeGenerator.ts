@@ -1,9 +1,22 @@
 import seedrandom from 'seedrandom';
 import type { SolarSystem } from '../types/solarSystem';
 import { StarType } from '../types/solarSystem';
+import {
+  DEFAULT_UNIVERSE_SEED,
+  SOLAR_SYSTEM_BASE_CHANCE,
+  SOLAR_SYSTEM_CHANCE_VARIANCE,
+  SECTOR_SIZE,
+  SECTOR_VARIATIONS,
+  STAR_DISTRIBUTION,
+  STAR_MASS_RANGES,
+  COMMON_PLANET_COUNT_CHANCE,
+  COMMON_PLANET_COUNT,
+  FULL_PLANET_COUNT_RANGE,
+  LIFE_CHANCE,
+} from '../constants/gameConstants';
 
 // Default seed for universe generation
-export const DEFAULT_SEED = 'darkforest';
+export const DEFAULT_SEED = DEFAULT_UNIVERSE_SEED;
 
 // Name components for procedural generation
 const NAME_PREFIXES = [
@@ -59,8 +72,8 @@ export class UniverseGenerator {
     // Determine if this hex has a solar system
     // Higher density for smaller stars, with reduced minimum spacing
     const distance = Math.sqrt(q * q + r * r);
-    const sectorMod = Math.floor(distance / 10); // Changes every 10 hexes
-    const baseChance = 0.15 + (sectorMod % 11) * 0.01; // 15-25% range (increased from 5-15%)
+    const sectorMod = Math.floor(distance / SECTOR_SIZE);
+    const baseChance = SOLAR_SYSTEM_BASE_CHANCE + (sectorMod % SECTOR_VARIATIONS) * SOLAR_SYSTEM_CHANCE_VARIANCE;
     
     if (rng() > baseChance) {
       return null; // No solar system here
@@ -71,35 +84,35 @@ export class UniverseGenerator {
     let starType: StarType;
     let mass: number;
     
-    if (starRoll < 0.7) {
-      // 70% Red Dwarf (increased from 50%)
+    if (starRoll < STAR_DISTRIBUTION.RED_DWARF) {
       starType = StarType.RED_DWARF;
-      mass = 1 + rng() * 9; // 1-10
-    } else if (starRoll < 0.9) {
-      // 20% Yellow Sun (decreased from 30%)
+      const range = STAR_MASS_RANGES[starType];
+      mass = range.min + rng() * (range.max - range.min);
+    } else if (starRoll < STAR_DISTRIBUTION.RED_DWARF + STAR_DISTRIBUTION.YELLOW_SUN) {
       starType = StarType.YELLOW_SUN;
-      mass = 20 + rng() * 30; // 20-50
-    } else if (starRoll < 0.97) {
-      // 7% White Dwarf (decreased from 15%)
+      const range = STAR_MASS_RANGES[starType];
+      mass = range.min + rng() * (range.max - range.min);
+    } else if (starRoll < STAR_DISTRIBUTION.RED_DWARF + STAR_DISTRIBUTION.YELLOW_SUN + STAR_DISTRIBUTION.WHITE_DWARF) {
       starType = StarType.WHITE_DWARF;
-      mass = 5 + rng() * 10; // 5-15
+      const range = STAR_MASS_RANGES[starType];
+      mass = range.min + rng() * (range.max - range.min);
     } else {
-      // 3% Blue Giant (decreased from 5%)
       starType = StarType.BLUE_GIANT;
-      mass = 100 + rng() * 400; // 100-500
+      const range = STAR_MASS_RANGES[starType];
+      mass = range.min + rng() * (range.max - range.min);
     }
 
     // Generate planet count (weighted: 50% chance of 2-4 planets)
     let planetCount: number;
     const planetRoll = rng();
-    if (planetRoll < 0.5) {
-      planetCount = 2 + Math.floor(rng() * 3); // 2-4 planets (50%)
+    if (planetRoll < COMMON_PLANET_COUNT_CHANCE) {
+      planetCount = COMMON_PLANET_COUNT.min + Math.floor(rng() * (COMMON_PLANET_COUNT.max - COMMON_PLANET_COUNT.min + 1));
     } else {
-      planetCount = Math.floor(rng() * 11); // 0-10 planets (50%)
+      planetCount = FULL_PLANET_COUNT_RANGE.min + Math.floor(rng() * (FULL_PLANET_COUNT_RANGE.max - FULL_PLANET_COUNT_RANGE.min + 1));
     }
 
     // Check for life (5% chance)
-    const hasLife = rng() < 0.05;
+    const hasLife = rng() < LIFE_CHANCE;
     const lifeDescription = hasLife 
       ? LIFE_DESCRIPTIONS[Math.floor(rng() * LIFE_DESCRIPTIONS.length)]
       : undefined;

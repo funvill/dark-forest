@@ -1,5 +1,14 @@
 import { create } from 'zustand';
 import type { SolarSystem, InformationRing } from '../types/solarSystem';
+import { 
+  STARTING_ENERGY, 
+  MINIMUM_ENERGY, 
+  STARTING_POSITION, 
+  STARTING_TURN, 
+  DEBUG_MODE_DEFAULT,
+  DEFAULT_ZOOM,
+  RESET_CAMERA_ZOOM,
+} from '../constants/gameConstants';
 
 interface HexCoordinate {
   q: number;
@@ -27,6 +36,7 @@ interface GameState {
   moveTargetHex: HexCoordinate | null;
   statusBarMessage: string;
   shipPosition: HexCoordinate;
+  movementHistory: HexCoordinate[];
   showMoveConfirmation: boolean;
   debugMode: boolean;
   convertedSystems: Set<string>;
@@ -48,6 +58,7 @@ interface GameState {
   setMoveTargetHex: (hex: HexCoordinate | null) => void;
   setStatusBarMessage: (message: string) => void;
   setShipPosition: (position: HexCoordinate) => void;
+  addToMovementHistory: (position: HexCoordinate) => void;
   setShowMoveConfirmation: (show: boolean) => void;
   setDebugMode: (enabled: boolean) => void;
   convertSolarSystem: (q: number, r: number) => void;
@@ -62,28 +73,36 @@ interface GameState {
   showConversionConfirmation: boolean;
   setShowConversionConfirmation: (show: boolean) => void;
   getRingsAtTurn: (turn: number) => InformationRing[];
+  energy: number;
+  addEnergy: (amount: number) => void;
+  deductEnergy: (amount: number) => boolean;
+  isGameOver: boolean;
+  setGameOver: (gameOver: boolean) => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
   cameraPosition: { x: 0, y: 0 },
-  zoomLevel: 1.0,
+  zoomLevel: DEFAULT_ZOOM,
   selectedHex: null,
   hoveredHex: null,
   showHexInfo: false,
   isMoveMode: false,
   moveTargetHex: null,
   statusBarMessage: 'Ready',
-  shipPosition: { q: 0, r: 0 },
+  shipPosition: STARTING_POSITION,
+  movementHistory: [STARTING_POSITION],
   showMoveConfirmation: false,
-  debugMode: false,
+  debugMode: DEBUG_MODE_DEFAULT,
   convertedSystems: new Set<string>(),
-  currentTurn: 0,
+  currentTurn: STARTING_TURN,
   scannedHexes: new Map<string, HexScanData>(),
   informationRings: [],
   selectedRing: null,
   showRingDetails: false,
   showEventsLog: false,
   showConversionConfirmation: false,
+  energy: STARTING_ENERGY,
+  isGameOver: false,
   setCameraPosition: (position) => set({ cameraPosition: position }),
   setZoomLevel: (zoom: number) => set({ zoomLevel: Math.max(0.3, Math.min(3.0, zoom)) }),
   zoomIn: () => set((state) => ({ zoomLevel: Math.min(3.0, state.zoomLevel * 1.2) })),
@@ -93,7 +112,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     // So camera should center at (0, 0) to focus on ship
     set({ 
       cameraPosition: { x: 0, y: 0 },
-      zoomLevel: 2.0 // Zoom in for better view
+      zoomLevel: RESET_CAMERA_ZOOM
     });
   },
   setSelectedHex: (hex) => set({ selectedHex: hex }),
@@ -103,6 +122,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   setMoveTargetHex: (hex) => set({ moveTargetHex: hex }),
   setStatusBarMessage: (message) => set({ statusBarMessage: message }),
   setShipPosition: (position) => set({ shipPosition: position }),
+  addToMovementHistory: (position) => set((state) => ({
+    movementHistory: [...state.movementHistory, position]
+  })),
   setShowMoveConfirmation: (show) => set({ showMoveConfirmation: show }),
   setDebugMode: (enabled) => set({ debugMode: enabled }),
   convertSolarSystem: (q, r) => set((state) => {
@@ -139,5 +161,19 @@ export const useGameStore = create<GameState>((set, get) => ({
   getRingsAtTurn: (turn: number): InformationRing[] => {
     return get().informationRings.filter(ring => ring.createdTurn <= turn);
   },
+  addEnergy: (amount: number) => set((state) => ({ energy: state.energy + amount })),
+  deductEnergy: (amount: number): boolean => {
+    const state = get();
+    if (state.energy >= amount) {
+      set({ energy: state.energy - amount });
+      // Check if game over after deduction (less than 1 hex move)
+      if (state.energy - amount < MINIMUM_ENERGY) {
+        set({ isGameOver: true });
+      }
+      return true;
+    }
+    return false;
+  },
+  setGameOver: (gameOver: boolean) => set({ isGameOver: gameOver }),
 }));
 

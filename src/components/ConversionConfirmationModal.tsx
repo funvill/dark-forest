@@ -2,6 +2,7 @@ import { useGameStore } from '../store/gameStore';
 import { universeGenerator } from '../utils/universeGenerator';
 import { ringApi } from '../utils/ringApi';
 import { ActionType } from '../types/solarSystem';
+import { calculateMassToEnergy, formatEnergy } from '../utils/energyUtils';
 
 export const ConversionConfirmationModal = () => {
   const {
@@ -14,6 +15,7 @@ export const ConversionConfirmationModal = () => {
     currentTurn,
     incrementTurn,
     setStatusBarMessage,
+    addEnergy,
   } = useGameStore();
 
   if (!showConversionConfirmation) return null;
@@ -35,16 +37,21 @@ export const ConversionConfirmationModal = () => {
         'You'
       );
       addInformationRing(ring);
+      
+      // Calculate and add energy
+      const energyGained = calculateMassToEnergy(solarSystem.mass);
+      addEnergy(energyGained);
+      
       convertSolarSystem(shipPosition.q, shipPosition.r);
       incrementTurn();
-      setStatusBarMessage(`Converted ${solarSystem.name}! Mass: ${solarSystem.mass.toFixed(1)} -> Energy: ${(solarSystem.mass * Math.pow(299792458, 2)).toExponential(2)} J`);
+      setStatusBarMessage(`Converted ${solarSystem.name}! Gained ${formatEnergy(energyGained)}`);
     }
     setShowConversionConfirmation(false);
   };
 
   if (!solarSystem) return null;
 
-  const energy = (solarSystem.mass * Math.pow(299792458, 2)).toExponential(2);
+  const energy = calculateMassToEnergy(solarSystem.mass);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
@@ -66,7 +73,7 @@ export const ConversionConfirmationModal = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Energy Output:</span>
-              <span className="text-green-400 font-semibold">{energy} J</span>
+              <span className="text-green-400 font-semibold">{formatEnergy(energy)}</span>
             </div>
           </div>
           <p className="text-yellow-400 text-sm">

@@ -14,9 +14,15 @@ export const ActionBar = () => {
     setShowEventsLog,
     showEventsLog,
     setShowConversionConfirmation,
+    isGameOver,
   } = useGameStore();
 
   const handleMoveClick = () => {
+    if (isGameOver) {
+      setStatusBarMessage('Game Over - No energy remaining!');
+      return;
+    }
+    
     if (isMoveMode) {
       // Exit move mode
       setIsMoveMode(false);
@@ -25,12 +31,15 @@ export const ActionBar = () => {
       // Enter move mode
       setIsMoveMode(true);
       setStatusBarMessage('Select a destination within 3 hexes');
-      // Smoothly pan camera to center (0, 0)
-      setCameraPosition({ x: 0, y: 0 });
+      // Camera will smoothly pan to ship in GameCanvas.tsx useEffect
     }
   };
 
   const handleConvertClick = () => {
+    if (isGameOver) {
+      setStatusBarMessage('Game Over - No energy remaining!');
+      return;
+    }
     setShowConversionConfirmation(true);
   };
 
@@ -42,8 +51,11 @@ export const ActionBar = () => {
     <div className="flex gap-2">
       <button
         onClick={handleMoveClick}
+        disabled={isGameOver}
         className={`px-4 py-2 rounded font-semibold transition-colors ${
-          isMoveMode
+          isGameOver
+            ? 'bg-gray-400 cursor-not-allowed text-gray-200'
+            : isMoveMode
             ? 'bg-blue-700 hover:bg-blue-800 text-white'
             : 'bg-blue-600 hover:bg-blue-700 text-white'
         }`}
@@ -53,7 +65,12 @@ export const ActionBar = () => {
       {canConvert && (
         <button
           onClick={handleConvertClick}
-          className="px-4 py-2 rounded font-semibold transition-colors bg-red-600 hover:bg-red-700 text-white"
+          disabled={isGameOver}
+          className={`px-4 py-2 rounded font-semibold transition-colors ${
+            isGameOver
+              ? 'bg-gray-400 cursor-not-allowed text-gray-200'
+              : 'bg-red-600 hover:bg-red-700 text-white'
+          }`}
         >
           Convert System (E=MC²)
         </button>

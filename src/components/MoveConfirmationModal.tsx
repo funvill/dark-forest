@@ -3,6 +3,8 @@ import { getHexDistance, getHexesInRange } from '../utils/hexUtils';
 import { universeGenerator } from '../utils/universeGenerator';
 import { ringApi } from '../utils/ringApi';
 import { ActionType } from '../types/solarSystem';
+import { calculateMoveCost, formatEnergy } from '../utils/energyUtils';
+import { SCAN_RANGE_AFTER_MOVE } from '../constants/gameConstants';
 
 export const MoveConfirmationModal = () => {
   const {
@@ -17,13 +19,25 @@ export const MoveConfirmationModal = () => {
     scanHex,
     addInformationRing,
     currentTurn,
+    deductEnergy,
+    energy,
+    addToMovementHistory,
   } = useGameStore();
 
   if (!showMoveConfirmation || !moveTargetHex) return null;
 
   const distance = getHexDistance(shipPosition, moveTargetHex);
+  const moveCost = calculateMoveCost(distance);
+  const canAfford = energy >= moveCost;
 
   const handleConfirm = () => {
+    // Deduct energy cost
+    if (!deductEnergy(moveCost)) {
+      setStatusBarMessage('Not enough energy to move!');
+      setShowMoveConfirmation(false);
+      return;
+    }
+    
     // Create information ring at starting position
     const ring = ringApi.createRing(
       shipPosition,
@@ -36,9 +50,10 @@ export const MoveConfirmationModal = () => {
     
     // Move the ship
     setShipPosition(moveTargetHex);
+    addToMovementHistory(moveTargetHex);
     
     // Scan hexes within range 1 of new position
-    const hexesToScan = getHexesInRange(moveTargetHex, 1);
+    const hexesToScan = getHexesInRange(moveTargetHex, SCAN_RANGE_AFTER_MOVE);
     hexesToScan.forEach(hex => {
       const solarSystem = universeGenerator.getSolarSystem(hex.q, hex.r);
       scanHex(hex, solarSystem);
@@ -66,9 +81,20 @@ export const MoveConfirmationModal = () => {
           <p className="text-gray-300 mb-2">
             <span className="font-semibold">Destination:</span> ({moveTargetHex.q}, {moveTargetHex.r})
           </p>
-          <p className="text-gray-300">
+          <p className="text-gray-300 mb-2">
             <span className="font-semibold">Distance:</span> {distance} {distance === 1 ? 'hex' : 'hexes'}
           </p>
+          <p className="text-gray-300 mb-2">
+            <span className="font-semibold">Energy Cost:</span> <span className={canAfford ? 'text-green-400' : 'text-red-400'}>{formatEnergy(moveCost)}</span>
+          </p>
+          <p className="text-gray-300 mb-2">
+            <span className="font-semibold">Current Energy:</span> {formatEnergy(energy)}
+          </p>
+          {!canAfford && (
+            <p className="text-red-400 mt-4 text-sm font-semibold">
+              ⚠️ Not enough energy to complete this move!
+            </p>
+          )}
           <p className="text-gray-400 mt-4 text-sm">
             Are you sure you want to move to this location?
           </p>
@@ -83,7 +109,12 @@ export const MoveConfirmationModal = () => {
           </button>
           <button
             onClick={handleConfirm}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded transition-colors"
+            disabled={!canAfford}
+            className={`${
+              canAfford 
+                ? 'bg-blue-600 hover:bg-blue-700' 
+                : 'bg-gray-500 cursor-not-allowed'
+            } text-white font-semibold py-2 px-6 rounded transition-colors`}
           >
             Move and End Turn
           </button>

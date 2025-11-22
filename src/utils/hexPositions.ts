@@ -10,7 +10,9 @@
  * - Hex (0,0) is positioned at world origin (0,0) after applying offset
  */
 
-export const HEX_SIZE = 50; // Distance from center to corner
+import { HEX_SIZE } from '../constants/gameConstants';
+
+export { HEX_SIZE };
 
 export interface HexCoordinates {
   q: number;
