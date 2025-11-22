@@ -178,6 +178,10 @@ export const GameCanvas = () => {
     informationRings,
     currentTurn,
     setSelectedRing,
+    isBigGunMode,
+    setBigGunTargetHex,
+    setShowBigGunConfirmation,
+    isHexDestroyed,
     setShowRingDetails,
     setShowHexInfo: setShowHexInfoState,
     zoomLevel,
@@ -1142,9 +1146,18 @@ export const GameCanvas = () => {
       Array.from(hexMeshesRef.current.values())
     );
 
-    // Reset all hexes
+    // Reset all hexes (but preserve destroyed hex colors)
     hexMeshesRef.current.forEach((mesh) => {
-      (mesh.material as THREE.MeshBasicMaterial).color.set(0x000000);
+      const { q, r } = mesh.userData;
+      if (isHexDestroyed(q, r)) {
+        (mesh.material as THREE.MeshBasicMaterial).color.set(0xff0000);
+        (mesh.material as THREE.MeshBasicMaterial).opacity = 0.3;
+        (mesh.material as THREE.MeshBasicMaterial).transparent = true;
+      } else {
+        (mesh.material as THREE.MeshBasicMaterial).color.set(0x000000);
+        (mesh.material as THREE.MeshBasicMaterial).opacity = 1;
+        (mesh.material as THREE.MeshBasicMaterial).transparent = false;
+      }
     });
 
     // Clean up move line if exists
@@ -1168,11 +1181,15 @@ export const GameCanvas = () => {
       if (isMoveMode) {
         // Move mode: show line and update cursor/status
         const distance = getHexDistance(shipPosition, { q, r });
-        const canMove = distance > 0 && distance <= MAX_MOVE_DISTANCE;
+        const hexDestroyed = isHexDestroyed(q, r);
+        const canMove = distance > 0 && distance <= MAX_MOVE_DISTANCE && !hexDestroyed;
 
         // Update status bar
         if (distance === 0) {
           setStatusBarMessage(`Hex (${q}, ${r}) - Select a destination`);
+          setCursorStyle('cursor-not-allowed');
+        } else if (hexDestroyed) {
+          setStatusBarMessage(`Hex (${q}, ${r}) - Destroyed by Big Gun`);
           setCursorStyle('cursor-not-allowed');
         } else if (canMove) {
           setStatusBarMessage(`Hex (${q}, ${r}) - Move ${distance} ${distance === 1 ? 'space' : 'spaces'}`);
@@ -1350,12 +1367,17 @@ export const GameCanvas = () => {
       if (isMoveMode) {
         // Move mode: check if move is valid and show confirmation
         const distance = getHexDistance(shipPosition, { q, r });
-        const canMove = distance > 0 && distance <= MAX_MOVE_DISTANCE;
+        const hexDestroyed = isHexDestroyed(q, r);
+        const canMove = distance > 0 && distance <= MAX_MOVE_DISTANCE && !hexDestroyed;
         
         if (canMove) {
           setMoveTargetHex({ q, r });
           setShowMoveConfirmation(true);
         }
+      } else if (isBigGunMode) {
+        // Big Gun mode: can target any hex
+        setBigGunTargetHex({ q, r });
+        setShowBigGunConfirmation(true);
       } else {
         // Normal mode: close ring details if open, show hex info
         setShowRingDetails(false);

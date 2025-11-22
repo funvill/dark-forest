@@ -6,7 +6,6 @@ export const ActionBar = () => {
     isMoveMode, 
     setIsMoveMode, 
     setStatusBarMessage, 
-    setCameraPosition, 
     debugMode, 
     setDebugMode,
     shipPosition,
@@ -15,6 +14,8 @@ export const ActionBar = () => {
     showEventsLog,
     setShowConversionConfirmation,
     isGameOver,
+    isBigGunMode,
+    setIsBigGunMode,
   } = useGameStore();
 
   const handleMoveClick = () => {
@@ -43,6 +44,23 @@ export const ActionBar = () => {
     setShowConversionConfirmation(true);
   };
 
+  const handleBigGunClick = () => {
+    if (isGameOver) {
+      setStatusBarMessage('Game Over - No energy remaining!');
+      return;
+    }
+    
+    if (isBigGunMode) {
+      // Exit Big Gun mode
+      setIsBigGunMode(false);
+      setStatusBarMessage('Ready');
+    } else {
+      // Enter Big Gun mode
+      setIsBigGunMode(true);
+      setStatusBarMessage('Select target hex for Big Gun');
+    }
+  };
+
   // Check if ship is on a solar system
   const solarSystem = universeGenerator.getSolarSystem(shipPosition.q, shipPosition.r);
   const canConvert = solarSystem && !isSolarSystemConverted(shipPosition.q, shipPosition.r);
@@ -61,6 +79,19 @@ export const ActionBar = () => {
         }`}
       >
         {isMoveMode ? 'Cancel Move' : 'Move'}
+      </button>
+      <button
+        onClick={handleBigGunClick}
+        disabled={isGameOver}
+        className={`px-4 py-2 rounded font-semibold transition-colors ${
+          isGameOver
+            ? 'bg-gray-400 cursor-not-allowed text-gray-200'
+            : isBigGunMode
+            ? 'bg-yellow-700 hover:bg-yellow-800 text-white'
+            : 'bg-yellow-600 hover:bg-yellow-700 text-white'
+        }`}
+      >
+        {isBigGunMode ? 'Cancel Big Gun' : 'Fire Big Gun'}
       </button>
       {canConvert && (
         <button

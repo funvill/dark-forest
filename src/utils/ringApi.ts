@@ -16,7 +16,8 @@ class RingApi {
     createdTurn: number,
     actionType: ActionType,
     playerId: string = 'player',
-    playerName: string = 'You'
+    playerName: string = 'You',
+    targetHex?: HexCoordinate
   ): InformationRing {
     return {
       id: `ring-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -25,6 +26,7 @@ class RingApi {
       actionType,
       playerId,
       playerName,
+      targetHex,
     };
   }
 

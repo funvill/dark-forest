@@ -2,7 +2,7 @@ import { useGameStore } from '../store/gameStore';
 import { universeGenerator } from '../utils/universeGenerator';
 import { ringApi } from '../utils/ringApi';
 import { ActionType } from '../types/solarSystem';
-import { calculateMassToEnergy, formatEnergy } from '../utils/energyUtils';
+import { formatEnergy } from '../utils/energyUtils';
 
 export const ConversionConfirmationModal = () => {
   const {
@@ -38,8 +38,8 @@ export const ConversionConfirmationModal = () => {
       );
       addInformationRing(ring);
       
-      // Calculate and add energy
-      const energyGained = calculateMassToEnergy(solarSystem.mass);
+      // Add energy (mass field now represents energy units)
+      const energyGained = Math.floor(solarSystem.mass);
       addEnergy(energyGained);
       
       convertSolarSystem(shipPosition.q, shipPosition.r);
@@ -51,7 +51,8 @@ export const ConversionConfirmationModal = () => {
 
   if (!solarSystem) return null;
 
-  const energy = calculateMassToEnergy(solarSystem.mass);
+  // Mass field now represents energy units
+  const energyGained = Math.floor(solarSystem.mass);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
@@ -67,13 +68,9 @@ export const ConversionConfirmationModal = () => {
               <span className="text-gray-400">Star Type:</span>
               <span className="text-white">{solarSystem.starType}</span>
             </div>
-            <div className="flex justify-between mb-1">
-              <span className="text-gray-400">Mass:</span>
-              <span className="text-white">{solarSystem.mass.toFixed(1)} M☉</span>
-            </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Energy Output:</span>
-              <span className="text-green-400 font-semibold">{formatEnergy(energy)}</span>
+              <span className="text-green-400 font-semibold">{formatEnergy(energyGained)} ({energyGained} units)</span>
             </div>
           </div>
           <p className="text-yellow-400 text-sm">

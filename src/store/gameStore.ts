@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { SolarSystem, InformationRing } from '../types/solarSystem';
+import type { SolarSystem, InformationRing, DestroyedHex } from '../types/solarSystem';
 import { 
   STARTING_ENERGY, 
   MINIMUM_ENERGY, 
@@ -8,6 +8,9 @@ import {
   DEBUG_MODE_DEFAULT,
   DEFAULT_ZOOM,
   RESET_CAMERA_ZOOM,
+  MIN_ZOOM,
+  MAX_ZOOM,
+  ZOOM_STEP,
 } from '../constants/gameConstants';
 
 interface HexCoordinate {
@@ -73,6 +76,15 @@ interface GameState {
   showConversionConfirmation: boolean;
   setShowConversionConfirmation: (show: boolean) => void;
   getRingsAtTurn: (turn: number) => InformationRing[];
+  isBigGunMode: boolean;
+  setIsBigGunMode: (active: boolean) => void;
+  bigGunTargetHex: HexCoordinate | null;
+  setBigGunTargetHex: (hex: HexCoordinate | null) => void;
+  showBigGunConfirmation: boolean;
+  setShowBigGunConfirmation: (show: boolean) => void;
+  destroyedHexes: DestroyedHex[];
+  addDestroyedHex: (hex: DestroyedHex) => void;
+  isHexDestroyed: (q: number, r: number) => boolean;
   energy: number;
   addEnergy: (amount: number) => void;
   deductEnergy: (amount: number) => boolean;
@@ -103,10 +115,14 @@ export const useGameStore = create<GameState>((set, get) => ({
   showConversionConfirmation: false,
   energy: STARTING_ENERGY,
   isGameOver: false,
+  isBigGunMode: false,
+  bigGunTargetHex: null,
+  showBigGunConfirmation: false,
+  destroyedHexes: [],
   setCameraPosition: (position) => set({ cameraPosition: position }),
-  setZoomLevel: (zoom: number) => set({ zoomLevel: Math.max(0.3, Math.min(3.0, zoom)) }),
-  zoomIn: () => set((state) => ({ zoomLevel: Math.min(3.0, state.zoomLevel * 1.2) })),
-  zoomOut: () => set((state) => ({ zoomLevel: Math.max(0.3, state.zoomLevel / 1.2) })),
+  setZoomLevel: (zoom: number) => set({ zoomLevel: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom)) }),
+  zoomIn: () => set((state) => ({ zoomLevel: Math.min(MAX_ZOOM, state.zoomLevel * ZOOM_STEP) })),
+  zoomOut: () => set((state) => ({ zoomLevel: Math.max(MIN_ZOOM, state.zoomLevel / ZOOM_STEP) })),
   resetCamera: () => {
     // Ship is always rendered at world coordinate (0, 0) after grid offset
     // So camera should center at (0, 0) to focus on ship
@@ -175,5 +191,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     return false;
   },
   setGameOver: (gameOver: boolean) => set({ isGameOver: gameOver }),
+  setIsBigGunMode: (active: boolean) => set({ isBigGunMode: active }),
+  setBigGunTargetHex: (hex: HexCoordinate | null) => set({ bigGunTargetHex: hex }),
+  setShowBigGunConfirmation: (show: boolean) => set({ showBigGunConfirmation: show }),
+  addDestroyedHex: (hex: DestroyedHex) => set((state) => ({
+    destroyedHexes: [...state.destroyedHexes, hex],
+  })),
+  isHexDestroyed: (q: number, r: number): boolean => {
+    return get().destroyedHexes.some(hex => hex.q === q && hex.r === r);
+  },
 }));
 

@@ -128,15 +128,15 @@ export const HexInfoPanel = () => {
             {/* System Name and Designation */}
             <h3 className="text-xl font-bold text-blue-400 mb-3">{solarSystem.name}</h3>
             
-            {/* Star Type and Mass */}
+            {/* Star Type and Energy */}
             <div className="space-y-2 mb-3">
               <div>
                 <span className="text-sm text-gray-400">Star Type: </span>
                 <span className="text-white">{solarSystem.starType}</span>
               </div>
               <div>
-                <span className="text-sm text-gray-400">Approx. Mass: </span>
-                <span className="text-white font-mono">{solarSystem.mass.toFixed(1)} M☉</span>
+                <span className="text-sm text-gray-400">Energy Potential: </span>
+                <span className="text-green-400 font-mono">{Math.floor(solarSystem.mass)} units</span>
               </div>
               <div>
                 <span className="text-sm text-gray-400">Planets: </span>

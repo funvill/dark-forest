@@ -8,7 +8,7 @@ import {
   SECTOR_SIZE,
   SECTOR_VARIATIONS,
   STAR_DISTRIBUTION,
-  STAR_MASS_RANGES,
+  STAR_ENERGY_RANGES,
   COMMON_PLANET_COUNT_CHANCE,
   COMMON_PLANET_COUNT,
   FULL_PLANET_COUNT_RANGE,
@@ -50,6 +50,7 @@ const LIFE_DESCRIPTIONS = [
  */
 export class UniverseGenerator {
   private seed: string;
+  private destroyedSystems: Set<string> = new Set();
   
   constructor(seed: string = DEFAULT_SEED) {
     this.seed = seed;
@@ -60,6 +61,12 @@ export class UniverseGenerator {
    * Uses seed + coordinates to ensure deterministic generation
    */
   getSolarSystem(q: number, r: number): SolarSystem | null {
+    // Check if system was destroyed by Big Gun
+    const key = `${q},${r}`;
+    if (this.destroyedSystems.has(key)) {
+      return null;
+    }
+    
     // Starting hex (0,0) has no solar system (player's converted home system)
     if (q === 0 && r === 0) {
       return null;
@@ -86,19 +93,19 @@ export class UniverseGenerator {
     
     if (starRoll < STAR_DISTRIBUTION.RED_DWARF) {
       starType = StarType.RED_DWARF;
-      const range = STAR_MASS_RANGES[starType];
+      const range = STAR_ENERGY_RANGES[starType];
       mass = range.min + rng() * (range.max - range.min);
     } else if (starRoll < STAR_DISTRIBUTION.RED_DWARF + STAR_DISTRIBUTION.YELLOW_SUN) {
       starType = StarType.YELLOW_SUN;
-      const range = STAR_MASS_RANGES[starType];
+      const range = STAR_ENERGY_RANGES[starType];
       mass = range.min + rng() * (range.max - range.min);
     } else if (starRoll < STAR_DISTRIBUTION.RED_DWARF + STAR_DISTRIBUTION.YELLOW_SUN + STAR_DISTRIBUTION.WHITE_DWARF) {
       starType = StarType.WHITE_DWARF;
-      const range = STAR_MASS_RANGES[starType];
+      const range = STAR_ENERGY_RANGES[starType];
       mass = range.min + rng() * (range.max - range.min);
     } else {
       starType = StarType.BLUE_GIANT;
-      const range = STAR_MASS_RANGES[starType];
+      const range = STAR_ENERGY_RANGES[starType];
       mass = range.min + rng() * (range.max - range.min);
     }
 
@@ -173,6 +180,14 @@ export class UniverseGenerator {
    */
   getSeed(): string {
     return this.seed;
+  }
+
+  /**
+   * Destroy a solar system (removed by Big Gun)
+   */
+  destroySolarSystem(q: number, r: number): void {
+    const key = `${q},${r}`;
+    this.destroyedSystems.add(key);
   }
 }
 

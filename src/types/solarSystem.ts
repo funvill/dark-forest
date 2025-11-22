@@ -12,7 +12,7 @@ export interface SolarSystem {
   r: number;
   name: string;
   starType: StarType;
-  mass: number;
+  mass: number; // Energy units (1-120) - displayed as Joules to user but stored as small numbers
   planetCount: number;
   hasLife: boolean;
   lifeDescription?: string;
@@ -39,4 +39,12 @@ export interface InformationRing {
   actionType: ActionType;
   playerId: string;
   playerName: string;
+  // For Big Gun rings
+  targetHex?: HexCoordinate;
+}
+
+export interface DestroyedHex {
+  q: number;
+  r: number;
+  destroyedTurn: number;
 }

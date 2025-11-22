@@ -9,38 +9,58 @@
 // ============================================================================
 
 /**
- * Starting energy for the player (in Joules)
- * Default: 4e+20 J (enough for 4 moves of 3 hexes)
+ * Starting energy for the player (internal units)
+ * Displayed as Joules to the user but stored as smaller numbers internally
+ * Default: 73 units (48 + 15 + 7 + 3 = enough for big gun + move 3 + move 2 + move 1)
  */
-export const STARTING_ENERGY = 4e+20;
+export const STARTING_ENERGY = 73;
 
 /**
- * Energy cost formula: 10^(ENERGY_COST_EXPONENT * distance + ENERGY_COST_BASE)
- * Default configuration:
- *   - 1 hex: 1.0e+10 J
- *   - 2 hexes: 1.0e+15 J
- *   - 3 hexes: 1.0e+20 J
+ * Energy costs for movement (internal units)
+ * Move 1 hex: 3 units
+ * Move 2 hexes: 7 units
+ * Move 3 hexes: 15 units
  */
-export const ENERGY_COST_EXPONENT = 5;
-export const ENERGY_COST_BASE = 5;
+export const MOVE_COSTS = {
+  1: 3,
+  2: 7,
+  3: 15,
+} as const;
 
 /**
  * Minimum energy required to continue playing
  * Game over when energy falls below this threshold
- * Default: 1.0e+10 J (cost of 1 hex move)
+ * Default: 3 units (cost of 1 hex move)
  */
-export const MINIMUM_ENERGY = 1.0e+10;
+export const MINIMUM_ENERGY = 3;
 
 /**
  * Energy threshold for low energy warning (display in orange)
- * Default: 1.0e+15 J (cost of 2 hex move)
+ * Default: 7 units (cost of 2 hex move)
  */
-export const LOW_ENERGY_THRESHOLD = 1.0e+15;
+export const LOW_ENERGY_THRESHOLD = 7;
+
+// ============================================================================
+// BIG GUN SYSTEM
+// ============================================================================
 
 /**
- * Speed of light in m/s (used for E=mc² conversion)
+ * Energy cost to fire the Big Gun (internal units)
+ * Default: 48 units
  */
-export const SPEED_OF_LIGHT = 299792458;
+export const BIG_GUN_ENERGY_COST = 48;
+
+/**
+ * Big Gun information ring color
+ * Default: #ffaa00 (orange-gold)
+ */
+export const BIG_GUN_RING_COLOR = '#ffaa00';
+
+/**
+ * Destroyed hex overlay opacity
+ * Default: 0.3 (30%)
+ */
+export const DESTROYED_HEX_OPACITY = 0.3;
 
 // ============================================================================
 // MOVEMENT SYSTEM
@@ -155,13 +175,14 @@ export const STAR_DISTRIBUTION = {
 };
 
 /**
- * Mass ranges for each star type (in solar masses M☉)
+ * Energy production ranges for each star type (internal units)
+ * When a star is converted to energy, it produces a random amount in this range
  */
-export const STAR_MASS_RANGES: Record<string, { min: number; max: number }> = {
-  'Red Dwarf': { min: 1, max: 10 },      // 1-10 M☉
-  'Yellow Sun': { min: 20, max: 50 },    // 20-50 M☉
-  'White Dwarf': { min: 5, max: 15 },    // 5-15 M☉
-  'Blue Giant': { min: 100, max: 500 },  // 100-500 M☉
+export const STAR_ENERGY_RANGES: Record<string, { min: number; max: number }> = {
+  'Red Dwarf': { min: 1, max: 10 },      // 1-10 energy units
+  'Yellow Sun': { min: 20, max: 50 },    // 20-50 energy units
+  'White Dwarf': { min: 5, max: 15 },    // 5-15 energy units
+  'Blue Giant': { min: 60, max: 120 },   // 60-120 energy units
 };
 
 /**
@@ -231,9 +252,9 @@ export const DEFAULT_ZOOM = 0.5;
 
 /**
  * Minimum camera zoom level
- * Default: 0.3
+ * Default: 0.05 (5%)
  */
-export const MIN_ZOOM = 0.3;
+export const MIN_ZOOM = 0.05;
 
 /**
  * Maximum camera zoom level
@@ -274,7 +295,7 @@ export const RENDER_RING_COUNT = 30;
  */
 export const ACTION_COLORS = {
   MOVE: '#3b82f6',      // blue
-  BIG_GUN: '#f97316',   // orange
+  BIG_GUN: '#ffaa00',   // orange-gold
   CONVERSION: '#ef4444', // red
 };
 

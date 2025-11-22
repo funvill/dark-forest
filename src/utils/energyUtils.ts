@@ -1,34 +1,36 @@
-import { ENERGY_COST_EXPONENT, ENERGY_COST_BASE, SPEED_OF_LIGHT } from '../constants/gameConstants';
+import { MOVE_COSTS, BIG_GUN_ENERGY_COST } from '../constants/gameConstants';
 
 /**
  * Calculate the energy cost to move a given distance in hexes
- * Moving 1 hex costs 1.0e+10 J
- * Moving 2 hexes costs 1.0e+15 J
- * Moving 3 hexes costs 1.0e+20 J
- * 
- * Formula: Energy = 10^(ENERGY_COST_EXPONENT * distance + ENERGY_COST_BASE)
+ * Moving 1 hex costs 3 units
+ * Moving 2 hexes costs 7 units
+ * Moving 3 hexes costs 15 units
  */
 export const calculateMoveCost = (distance: number): number => {
   if (distance <= 0) return 0;
-  return Math.pow(10, ENERGY_COST_EXPONENT * distance + ENERGY_COST_BASE);
+  if (distance > 3) return MOVE_COSTS[3]; // Cap at 3 hex cost
+  return MOVE_COSTS[distance as keyof typeof MOVE_COSTS] || 0;
 };
 
 /**
- * Calculate energy gained from converting mass to energy
- * Using E=mc² where c = 299,792,458 m/s
+ * Convert internal energy units to Joules for display
+ * Uses exponential scaling for dramatic visual effect
  */
-export const calculateMassToEnergy = (mass: number): number => {
-  return mass * Math.pow(SPEED_OF_LIGHT, 2);
+export const energyUnitsToJoules = (units: number): number => {
+  // Scale: 1 unit = 1e18 J, giving us nice e+18 to e+20 range for display
+  return units * 1e18;
 };
 
 /**
- * Format energy value for display with appropriate units
+ * Format energy value for display with Joules
+ * Internal units are converted to Joules for display
  */
 export const formatEnergy = (energy: number): string => {
   if (energy === 0) return '0 J';
   
-  const exponent = Math.floor(Math.log10(Math.abs(energy)));
-  const mantissa = energy / Math.pow(10, exponent);
+  const joules = energyUnitsToJoules(energy);
+  const exponent = Math.floor(Math.log10(Math.abs(joules)));
+  const mantissa = joules / Math.pow(10, exponent);
   
   return `${mantissa.toFixed(2)}e+${exponent} J`;
 };
@@ -38,4 +40,11 @@ export const formatEnergy = (energy: number): string => {
  */
 export const canAffordMove = (currentEnergy: number, distance: number): boolean => {
   return currentEnergy >= calculateMoveCost(distance);
+};
+
+/**
+ * Get energy cost for big gun
+ */
+export const getBigGunCost = (): number => {
+  return BIG_GUN_ENERGY_COST;
 };
