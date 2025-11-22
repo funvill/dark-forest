@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { defineHex, Orientation } from 'honeycomb-grid';
 import { useGameStore } from '../store/gameStore';
 import { getHexDistance, getHexesInRange, findHexPath } from '../utils/hexUtils';
+import { canAffordMove } from '../utils/energyUtils';
 import { HEX_SIZE, HEX_POSITIONS } from '../utils/hexPositions';
 import { universeGenerator } from '../utils/universeGenerator';
 import { StarType } from '../types/solarSystem';
@@ -146,7 +147,7 @@ export const GameCanvas = () => {
   const coordinateTextRef = useRef<THREE.Sprite | null>(null);
   const moveLineRef = useRef<THREE.Group | null>(null);
   const moveLineParticlesRef = useRef<{ particles: THREE.Points; path: THREE.Vector3[]; color: number; time: number } | null>(null);
-  const movementGhostRef = useRef<{ line: THREE.Line; particles: THREE.Points } | null>(null);
+  const movementGhostRef = useRef<{ line: THREE.Mesh; particles: THREE.Points } | null>(null);
   const rangeHighlightMeshesRef = useRef<THREE.Mesh[]>([]);
   const debugCirclesRef = useRef<THREE.Object3D[]>([]);
   const solarSystemMeshesRef = useRef<Map<string, THREE.Group>>(new Map());
@@ -187,6 +188,8 @@ export const GameCanvas = () => {
     zoomLevel,
     setZoomLevel,
     movementHistory,
+    energy,
+    showInformationRings,
   } = useGameStore();
 
   // Initial hex scanning - scan starting position and surrounding hexes
@@ -268,10 +271,18 @@ export const GameCanvas = () => {
     const edgeGeometry = new THREE.EdgesGeometry(hexGeometry);
     const edgeMaterial = new THREE.LineBasicMaterial({ color: 0xaaaaaa });
 
-    // Create hex grid (visible area plus buffer)
+    // Create hex grid in hexagonal shape (not rhombus)
+    // Use the constraint: -radius <= q <= radius, -radius <= r <= radius, -radius <= s <= radius
+    // where s = -q - r (third cube coordinate)
     const hexRadius = 25;
     for (let q = -hexRadius; q <= hexRadius; q++) {
       for (let r = -hexRadius; r <= hexRadius; r++) {
+        const s = -q - r;
+        // Skip hexes outside the hexagonal boundary
+        if (s < -hexRadius || s > hexRadius) {
+          continue;
+        }
+        
         const hex = new Hex({ q, r });
         const center = hex.center;
 
@@ -687,15 +698,27 @@ export const GameCanvas = () => {
       ));
     });
 
-    // Create faint blue line
-    const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
-    const lineMaterial = new THREE.LineBasicMaterial({
+    // Create thick tube-based line (match ring thickness of 16 pixels)
+    // Create a path from the points
+    const path = new THREE.CatmullRomCurve3(points);
+    
+    // Create tube geometry along the path
+    const tubeGeometry = new THREE.TubeGeometry(
+      path,
+      points.length * 10, // segments
+      8, // radius (half of 16 pixel thickness)
+      8, // radial segments
+      false // closed
+    );
+    
+    const tubeMaterial = new THREE.MeshBasicMaterial({
       color: 0x4488ff,
       transparent: true,
       opacity: 0.3,
-      linewidth: 2,
+      side: THREE.DoubleSide,
     });
-    const line = new THREE.Line(lineGeometry, lineMaterial);
+    
+    const line = new THREE.Mesh(tubeGeometry, tubeMaterial);
     scene.add(line);
 
     // Create particles along the path
@@ -756,8 +779,18 @@ export const GameCanvas = () => {
     rangeHighlightMeshesRef.current = [];
 
     if (isMoveMode) {
-      // Show green tint on all hexes within 3-hex range
-      const hexesInRange = getHexesInRange(shipPosition, MAX_MOVE_DISTANCE);
+      // Calculate the maximum distance the player can afford to move
+      let affordableDistance = 0;
+      for (let dist = 1; dist <= MAX_MOVE_DISTANCE; dist++) {
+        if (canAffordMove(energy, dist)) {
+          affordableDistance = dist;
+        } else {
+          break;
+        }
+      }
+
+      // Show green tint on all hexes within affordable range
+      const hexesInRange = getHexesInRange(shipPosition, affordableDistance);
       const Hex = defineHex({ dimensions: HEX_SIZE, orientation: Orientation.POINTY });
 
       hexesInRange.forEach(({ q, r }) => {
@@ -833,7 +866,7 @@ export const GameCanvas = () => {
         animateCamera();
       }
     }
-  }, [isMoveMode, shipPosition]);
+  }, [isMoveMode, shipPosition, energy]);
 
   // Render information rings
   useEffect(() => {
@@ -849,6 +882,11 @@ export const GameCanvas = () => {
       (mesh.material as THREE.Material).dispose();
     });
     ringMeshesRef.current.clear();
+
+    // Skip rendering if information rings are disabled
+    if (!showInformationRings) {
+      return;
+    }
 
     // Create ring meshes for visible rings
     const visibleRings = ringApi.getVisibleRings(informationRings, shipPosition, 25);
@@ -930,7 +968,7 @@ export const GameCanvas = () => {
         
         scene.add(marker);
     });
-  }, [informationRings, currentTurn, shipPosition]);
+  }, [informationRings, currentTurn, shipPosition, showInformationRings]);
 
   // Trigger ring animations when turn changes or new rings added
   useEffect(() => {
@@ -1097,8 +1135,10 @@ export const GameCanvas = () => {
       }
 
       if (isDragging) {
-        const newX = cameraPosition.x - deltaX * 0.5;
-        const newY = cameraPosition.y + deltaY * 0.5;
+        // Scale drag speed by zoom level - drag more when zoomed out
+        const dragScale = 0.5 / zoomLevel;
+        const newX = cameraPosition.x - deltaX * dragScale;
+        const newY = cameraPosition.y + deltaY * dragScale;
 
         setCameraPosition({ x: newX, y: newY });
         cameraRef.current.position.set(newX, newY, 100);

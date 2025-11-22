@@ -49,6 +49,8 @@ interface GameState {
   selectedRing: InformationRing | null;
   showRingDetails: boolean;
   showEventsLog: boolean;
+  showInformationRings: boolean;
+  setShowInformationRings: (show: boolean) => void;
   setCameraPosition: (position: { x: number; y: number }) => void;
   setZoomLevel: (zoom: number) => void;
   zoomIn: () => void;
@@ -90,6 +92,8 @@ interface GameState {
   deductEnergy: (amount: number) => boolean;
   isGameOver: boolean;
   setGameOver: (gameOver: boolean) => void;
+  gameStarted: boolean;
+  setGameStarted: (started: boolean) => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -112,9 +116,11 @@ export const useGameStore = create<GameState>((set, get) => ({
   selectedRing: null,
   showRingDetails: false,
   showEventsLog: false,
+  showInformationRings: true,
   showConversionConfirmation: false,
   energy: STARTING_ENERGY,
   isGameOver: false,
+  gameStarted: false,
   isBigGunMode: false,
   bigGunTargetHex: null,
   showBigGunConfirmation: false,
@@ -173,6 +179,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   setSelectedRing: (ring: InformationRing | null) => set({ selectedRing: ring }),
   setShowRingDetails: (show: boolean) => set({ showRingDetails: show }),
   setShowEventsLog: (show: boolean) => set({ showEventsLog: show }),
+  setShowInformationRings: (show: boolean) => set({ showInformationRings: show }),
   setShowConversionConfirmation: (show: boolean) => set({ showConversionConfirmation: show }),
   getRingsAtTurn: (turn: number): InformationRing[] => {
     return get().informationRings.filter(ring => ring.createdTurn <= turn);
@@ -191,6 +198,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     return false;
   },
   setGameOver: (gameOver: boolean) => set({ isGameOver: gameOver }),
+  setGameStarted: (started: boolean) => set({ gameStarted: started }),
   setIsBigGunMode: (active: boolean) => set({ isBigGunMode: active }),
   setBigGunTargetHex: (hex: HexCoordinate | null) => set({ bigGunTargetHex: hex }),
   setShowBigGunConfirmation: (show: boolean) => set({ showBigGunConfirmation: show }),

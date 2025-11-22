@@ -7,6 +7,6 @@ export default defineConfig({
   base: '/dark-forest/',
   define: {
     __BUILD_DATE__: JSON.stringify(new Date().toISOString().split('T')[0]),
-    __VERSION__: JSON.stringify('0.0.1'),
+    __VERSION__: JSON.stringify('0.0.2'),
   },
 })
